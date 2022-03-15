@@ -8,92 +8,14 @@
 #include <map>
 #include <iostream>
 
-// A structure which store and op of segments
-// if we want to alter struture of buffer, we don't need to alter StreamReassembler
-struct Buffer {
-  std::map <size_t, std::string> _data;
-
-  Buffer() : _data() {}
-
-  bool empty() const { return _data.empty();  }
-
-  bool merge_forward(size_t& unreassemble, size_t& index, std::string& data) {
-    auto upper_iter = _data.lower_bound(index); // >=
-
-    // merge forward
-    if(upper_iter != _data.end()) {
-      
-      if(upper_iter->first + upper_iter->second.size() <= index + data.size()) {
-        unreassemble -= upper_iter->second.size();
-        _data.erase(upper_iter); 
-        merge_forward(unreassemble, index, data);
-
-      } else if (upper_iter->first == index) {
-        return false;
-      } else if (upper_iter->first < index + data.size()) {
-        data = data.substr(0, upper_iter->first - index);
-      }
-
-    }
-    return true;
-  }
-
-  bool merge_backward(size_t& index, std::string& data) {
-    auto lower_iter = _data.upper_bound(index);
-    if(lower_iter != _data.begin()) {
-      lower_iter--;
-      if(lower_iter != _data.end()) {
-        if(lower_iter->first + lower_iter->second.size() > index) {
-          if(lower_iter->first + lower_iter->second.size() > index + data.size())
-            return false;
-          data = data.substr(lower_iter->first + lower_iter->second.size() - index);
-        }
-      }
-    }
-    return true;
-  }
-
-  void insert(size_t& unreassemble, size_t index, std::string data) {
-    if( _data.empty() || (merge_forward(unreassemble, index, data) && merge_backward(index, data)) ) {
-      unreassemble += data.size();
-      _data.insert({index, data});
-    }
-  }
-
-  void send(ByteStream& out, size_t& expected, size_t& unreassemble) {
-    auto iter = _data.begin();
-
-    while(iter != _data.end() && iter->first <= expected) {
-      std::string data = iter->second;
-      size_t index = iter->first;
-      auto temp = iter;
-      if(index + data.size() > expected) {
-
-        if(index < expected) {
-          data = data.substr(expected - index);
-        }
-        if(data.size() > out.remaining_capacity()) {
-          data = data.substr(0, out.remaining_capacity());
-        }
-        ++iter;
-        out.write(data);
-        expected += data.size();
-        unreassemble -= data.size();
-        }
-      
-      _data.erase(temp);
-    }
-  }
-  //...
-};
-
-
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
 class StreamReassembler {
   private:
     // Your code here -- add private members as necessary.
-    Buffer _reassemble_buffer;      // store received substring
+    // Buffer _reassemble_buffer;      // store received substring
+    
+    std::map<size_t, std::string> _reassemble_buffer;
 
     size_t _expected;    // The index of bytes which not yet reassembled
     size_t _eof_index;   // the last byte of string
@@ -101,6 +23,10 @@ class StreamReassembler {
 
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
+
+    bool merge (size_t& index, std::string& data); // dedup data then insert it into reassemble_buffer
+    void insert(size_t  index, std::string  data); //
+    void send();                                   // send ordered data to ByteStream
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
