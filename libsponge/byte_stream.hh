@@ -91,6 +91,7 @@ class ByteStream {
   private:
     // Your code here -- add private members as necessary.
     my_queue slide_window;
+    
     std::size_t _capacity;
     std::size_t _bytes_written;
     std::size_t _bytes_read;
