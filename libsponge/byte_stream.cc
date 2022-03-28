@@ -13,7 +13,7 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 using namespace std;
 
 ByteStream::ByteStream(const size_t capacity) 
-    : slide_window(my_queue(capacity)), _capacity(capacity), _bytes_written(0),
+    : _byte_buffer(my_queue(capacity)), _capacity(capacity), _bytes_written(0),
      _bytes_read(0), _end_input(false), _end_output(false), _error(false)
 { /* DUMMY_CODE(capacity); */ }
 
@@ -24,8 +24,8 @@ size_t ByteStream::write(const string &data) {
     }
     size_t idx = 0;
 
-    while(idx < data.size() && (!slide_window.full()) ) {
-        slide_window.push(data[idx++]);
+    while(idx < data.size() && (!_byte_buffer.full()) ) {
+        _byte_buffer.push(data[idx++]);
     }
     _bytes_written += idx;
 
@@ -36,16 +36,16 @@ size_t ByteStream::write(const string &data) {
 string ByteStream::peek_output(const size_t len) const {
     // DUMMY_CODE(len);
     // cout << "peek_output " << len << "Bytes\n";
-    const size_t sz = std::min(len, slide_window.size());
-    return std::move(slide_window.top(sz));
+    const size_t sz = std::min(len, _byte_buffer.size());
+    return std::move(_byte_buffer.top(sz));
 }
 
 //! \param[in] len bytes will be removed from the output side of the buffer
 void ByteStream::pop_output(const size_t len) { 
     // DUMMY_CODE(len); 
-    const size_t sz = std::min(len, slide_window.size());
+    const size_t sz = std::min(len, _byte_buffer.size());
 
-    slide_window.pop(sz);
+    _byte_buffer.pop(sz);
     _bytes_read += sz;
 
     return;
@@ -74,11 +74,11 @@ bool ByteStream::input_ended() const {
 }
 
 size_t ByteStream::buffer_size() const { 
-    return slide_window.size(); 
+    return _byte_buffer.size(); 
 }
 
 bool ByteStream::buffer_empty() const { 
-    return slide_window.empty(); 
+    return _byte_buffer.empty(); 
 }
 
 bool ByteStream::eof() const { 
@@ -94,5 +94,5 @@ size_t ByteStream::bytes_read() const {
 }
 
 size_t ByteStream::remaining_capacity() const { 
-    return _capacity - slide_window.size(); 
+    return _capacity - _byte_buffer.size(); 
 }

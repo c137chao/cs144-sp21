@@ -90,7 +90,7 @@ struct my_queue{
 class ByteStream {
   private:
     // Your code here -- add private members as necessary.
-    my_queue slide_window;
+    my_queue _byte_buffer;
     
     std::size_t _capacity;
     std::size_t _bytes_written;
