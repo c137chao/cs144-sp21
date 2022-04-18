@@ -13,76 +13,84 @@
 //! side.  The byte stream is finite: the writer can end the input,
 //! and then no more bytes can be written.
 
-struct my_queue{
-
+class my_queue{
+private:
   std::string _data;
-
   size_t _capacity;
   size_t _write;
   size_t _read;
 
-// constructer
+public:
   my_queue(size_t cap)
-    : _data(std::string(cap + 1, '0')), _capacity(cap + 1), _write(0), _read(0) {}
-// API
-  // if queue is empty, return true
+    : _data(std::string(cap + 1, '^')), _capacity(cap + 1), _write(0), _read(0) {}
+
+  //! \returns true if queue is empty
   bool empty() const {
     return _write == _read;
   }
-  // if queue if full, return true
+  //! \returns true if queue is full 
   bool full()  const {
     return ((_write + 1) % _capacity) == _read ; 
   }
-  // return elem count of queue
+
+  //! \returns counts of element in queue
   size_t size() const { 
     return ( _write - _read  + _capacity ) % _capacity; 
   }
-  // return total capcity of queue
+
+  //! \returns total capcity of queue
   size_t capacity() const {
-    return _capacity;
+    return _capacity - 1;
   }
-  // push a char to the back of queue
+
+  // push one char to the back of queue
   void push(char c) {
-    if(full()){
+    if (full()) {
       throw std::out_of_range("push err: queue is full");
     }
     _data[_write] = c; 
     _write = (_write + 1) % _capacity;
   }
-  // pop a char from the front of queue
+
+  // pop one char at the front in queue
   void pop() {
-    if(empty()) {
+    if (empty()) {
       throw std::out_of_range("pop err: queue is empty");
     }
     _read = (_read + 1) % _capacity;
   }
-
+  
+  // pop n char at the front in queue
   void pop(const size_t n) {
-    if(size() < n) {
+    if (size() < n) {
       throw std::out_of_range("pop(n) err: queue hasn't enough elem");
     }
-      _read = (_read + n) % _capacity;
+
+    _read = (_read + n) % _capacity;
   }
 
+  //! \returns top one char at the front of queue
   char top() const {
-    if(empty()) {
+    if (empty()) {
       throw std::out_of_range("top err: queue is empty");
     }
+
     return _data[_read];
   }
 
+  //! \returns top n chars at the front of queue
   std::string top(const size_t n) const {
-    if(size() < n) {
+    if (size() < n) {
       throw std::out_of_range("top(n) err: queue hasn't enough elem");
     }
 
     size_t sz = std::min(n, size());
-    if(_read + sz < _capacity) {
+
+    if (_read + sz < _capacity) {
       return std::move(std::string(_data, _read, sz));
-    }else{
+    } else {
       return std::move(std::string(_data, _read, _capacity - _read) + std::string(_data, 0, sz - (_capacity - _read)));
     }
-
   }
 };
 

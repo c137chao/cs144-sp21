@@ -24,9 +24,14 @@ class StreamReassembler {
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
 
-    bool merge (size_t& index, std::string& data); // dedup data then insert it into reassemble_buffer
-    void insert(size_t  index, std::string  data); //
-    void send();                                   // send ordered data to ByteStream
+    /* dedup the repeated part of data **/
+    bool merge (size_t* index, std::string* data);
+
+    /* insert the received data to reassembled buffer **/
+    void insert(size_t index, std::string data); 
+    
+    /* send ordered data to ByteStream **/
+    void send_to_bytestream();                     
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
