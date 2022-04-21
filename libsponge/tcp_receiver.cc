@@ -13,6 +13,7 @@ using namespace std;
 void TCPReceiver::segment_received(const TCPSegment &seg) {
     TCPHeader header = seg.header();
     bool receivedSYN = 1;
+
     if (_in_listen) { // if state is LISTEN an syn is true, set seq 
         if (!header.syn) {
             _reassembler.stream_out().error();
@@ -23,6 +24,8 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
         receivedSYN = 0;
     }
 
+    // becasec syn and fin may be in same segment
+    // so send seg even a syn flag is true
     uint64_t checkpoint = _reassembler.stream_out().bytes_written();
     uint64_t stream_index = unwrap(header.seqno, _isn, checkpoint) - receivedSYN;
 
