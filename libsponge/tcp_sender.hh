@@ -33,29 +33,34 @@ class TCPSender {
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
-    //! my code here/ ======================================================
-    using retransmission_Seg = std::pair<size_t, TCPSegment>;
-    //! data hss been sent but no ack;
-    std::queue<retransmission_Seg> _segments_outstanding{};
+    //! ++++++++++++++++++++     my code here    +++++++++++++++++++++++
+  
+    //! data hss been sent but not receive ack;
+    std::queue<std::pair<size_t, TCPSegment>> _segments_outstanding{};
     
     //! remaining_time trap resent
     unsigned int _remaining_time{};
+  
+    //! congestion control: if over time, doulbe _retransmission_timeout
     unsigned int _retransmission_timeout;
+  
+    //! process tick or not
     bool _alarm_run = false;
 
     //! bytes count of payload in outgoing_segment
-    uint64_t _bytes_in_flight = 0;
+    uint64_t _bytes_in_flight{};
 
     enum STATE {CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FINS_ACKED};
     //! current state, init is closed
     STATE _state = CLOSED;
 
-    uint64_t _ack_no{};
-    // how man bytes can send, init is 1 byte
-    uint64_t _window_size{};
-
+    //! how man bytes can send, init is 1 byte (because send syn)
+    uint64_t _window_size{1};
+  
+    //! times of oldest segment retansmission
     uint64_t _retransmission_count{};
-
+  
+    //! \brief send a syn segment
     void send_syn_segment();
 
   public:
