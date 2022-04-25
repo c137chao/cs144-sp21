@@ -24,7 +24,6 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , _stream(capacity), _retransmission_timeout(retx_timeout) {}
 
 uint64_t TCPSender::bytes_in_flight() const { 
-    // return _outgoing_segment.size();
     return _bytes_in_flight;
 }
 
@@ -48,27 +47,32 @@ inline void TCPSender::send_syn_segment() {
 }
 
 void TCPSender::fill_window() {
-    if (_state == CLOSED) {
+     TCPSegment segment;
+     if (_state == CLOSED) {
         // if doesn't set connection, send syn segment
-        return send_syn_segment(); 
+        // cerr << "State: CLOSED -->> SYN_SENT\n";
+        segment.header().syn = true;
+        _state = SYN_SENT;
+        // return send_syn_segment(); 
     }
     // if _window_size is 0, try send a byte payload data
-    uint64_t curr_window_size = _window_size;
-    if (curr_window_size == 0) {
-        curr_window_size = 1;
+    uint64_t window_size = _window_size;
+    if (window_size == 0) {
+        window_size = 1;
     }
+
     // send data entil window is full or _stream.eof() or buffer empty
-    while (_state == SYN_ACKED && curr_window_size > bytes_in_flight()) {
+    while ((_state == SYN_ACKED) and (window_size > bytes_in_flight())) {
         TCPSegment segment;
         segment.header().seqno = next_seqno();
 
-        size_t readsz = curr_window_size - bytes_in_flight();
+        size_t readsz = window_size - bytes_in_flight();
     
         // if write ended, check should we set fin flag
-        if(_stream.input_ended() && readsz > _stream.buffer_size()) {
+        if((_stream.input_ended()) and (readsz > _stream.buffer_size())) {
             segment.header().fin = true;
             _state = FIN_SENT;
-            readsz--;
+            readsz--; // 没有必要，因为缓冲区中的数据已经不够readsz了，一定有空间给fin
         } else if (_stream.buffer_empty()) {
             return;
         }
@@ -114,14 +118,15 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
 
     if (_state == SYN_SENT && _bytes_in_flight < _next_seqno) {
+        // cerr << "State: SYN_SENT -->> SYN_ACKED\n";
         _state = SYN_ACKED;
     }
     if (_state == SYN_ACKED) {   
         fill_window();
+    } else if (_state == FIN_SENT) {
+        // cerr << "State: FIN_SENT -->> FINS_ACKED\n";
+        _state = FINS_ACKED;
     }
-    // } else if (_state == FIN_SENT) {
-    //    _state = FINS_ACKED;
-    // }
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
@@ -132,7 +137,7 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
     }
     _remaining_time += ms_since_last_tick;
 
-    if (!_segments_outstanding.empty() && _remaining_time >= _retransmission_timeout) {
+    if (!_segments_outstanding.empty() and _remaining_time >= _retransmission_timeout) {
         if (_window_size != 0) { 
             // if netword congestion
             _retransmission_timeout *= 2;

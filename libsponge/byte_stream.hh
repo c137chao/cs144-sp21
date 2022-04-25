@@ -43,6 +43,10 @@ public:
     return _capacity - 1;
   }
 
+  size_t remain_capcity() const {
+    return _capacity - 1 - size();
+  }
+
   // push one char to the back of queue
   void push(char c) {
     if (full()) {

@@ -19,6 +19,8 @@ int main() {
 
         // test #1: start in LAST_ACK, ack
         {
+            cerr << "<FSM-passive close>: Test 1 started" << endl;
+
             TCPTestHarness test_1 = TCPTestHarness::in_last_ack(cfg);
 
             test_1.execute(Tick(4 * cfg.rt_timeout));
@@ -29,10 +31,13 @@ int main() {
             test_1.execute(Tick(1));
 
             test_1.execute(ExpectState{State::CLOSED});
+            cerr << "<FSM-passive close>: Test 1 passed" << endl;
+
         }
 
         // test #2: start in CLOSE_WAIT, close(), throw away first FIN, ack re-tx FIN
         {
+            cerr << "<FSM-passive close>: Test 2 started" << endl;
             TCPTestHarness test_2 = TCPTestHarness::in_close_wait(cfg);
 
             test_2.execute(Tick(4 * cfg.rt_timeout));
@@ -66,6 +71,7 @@ int main() {
             test_2.execute(Tick(1));
 
             test_2.execute(ExpectState{State::CLOSED});
+            cerr << "<FSM-passive close>: Test 2 passed" << endl;
         }
 
         // test #3: start in ESTABLSHED, send FIN, recv ACK, check for CLOSE_WAIT

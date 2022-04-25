@@ -22,16 +22,15 @@ size_t ByteStream::write(const string &data) {
     if (input_ended()) {
         return 0;
     }
-    size_t idx = 0;
-
-    while (idx < data.size() && (!_byte_buffer.full()) ) {
-        _byte_buffer.push(data[idx++]);
+    size_t size = min(data.size(), _byte_buffer.remain_capcity());
+    for (size_t i = 0; i < size; i++) {
+        _byte_buffer.push(data[i]);
     }
 
-    _bytes_written += idx;
+    _bytes_written += size;
     // cout << ">>Bytestream write: " << _bytes_written << "bits, data:" << data << endl;
 
-    return idx;
+    return size;
 }
 
 //! \param[in] len bytes will be copied from the output side of the buffer

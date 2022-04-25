@@ -19,19 +19,30 @@ int main() {
 
         // test #1: start in TIME_WAIT, timeout
         {
+            // cerr << "<FSM-active close>: Test 1 started" << endl;
+
             TCPTestHarness test_1 = TCPTestHarness::in_time_wait(cfg);
+
+            // cerr << "Tick(10 * cfg.rt_timeout - 1)" << endl;
 
             test_1.execute(Tick(10 * cfg.rt_timeout - 1));
 
+            // cerr << "ExpectNotInState{State::TIME_WAIT}" << endl;
             test_1.execute(ExpectState{State::TIME_WAIT});
 
+            // cerr << "Tick(1)" << endl;
             test_1.execute(Tick(1));
 
+            // cerr << "ExpectNotInState{State::TIME_WAIT}" << endl;
             test_1.execute(ExpectNotInState{State::TIME_WAIT});
 
+            // cerr << "tick(10 * cfg.rt_timeout)" << endl;
             test_1.execute(Tick(10 * cfg.rt_timeout));
 
+            // cerr << "expectState{State::CLOSED" << endl;
             test_1.execute(ExpectState{State::CLOSED});
+
+            // cerr << "<FSM-active close>: Test 1 passed" << endl;
         }
 
         // test #2: start in CLOSING, send ack, time out
@@ -54,6 +65,8 @@ int main() {
             test_2.execute(Tick(2));
 
             test_2.execute(ExpectState{State::CLOSED});
+            
+            cerr << "<FSM-active close>: Test 2 passed" << endl;
         }
 
         // test #3: start in FIN_WAIT_2, send FIN, time out
@@ -77,6 +90,8 @@ int main() {
             test_3.execute(Tick(10 * cfg.rt_timeout));
 
             test_3.execute(ExpectState{State::CLOSED});
+
+            cerr << "<FSM-active close>: Test 3 passed" << endl;
         }
 
         // test #4: start in FIN_WAIT_1, ack, FIN, time out

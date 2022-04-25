@@ -22,6 +22,7 @@ class TCPReceiver {
 
     //！ my code here
     WrappingInt32 _isn;
+    // enum STATE{LISTEN, SYN_RECV, FIN_RECV};
     bool _in_listen;
   public:
     //! \brief Construct a TCP receiver

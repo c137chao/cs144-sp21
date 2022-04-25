@@ -11,23 +11,23 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 using namespace std;
 
 void TCPReceiver::segment_received(const TCPSegment &seg) {
-    TCPHeader header = seg.header();
-    bool receivedSYN = 1;
+    const TCPHeader& header = seg.header();
 
     if (_in_listen) { // if state is LISTEN an syn is true, set seq 
         if (!header.syn) {
-            _reassembler.stream_out().error();
             return;
         }
+        // cerr << "Recever: LISTEN -->> SYN_RECV\n";
         _in_listen = false;
         _isn = header.seqno;
-        receivedSYN = 0;
     }
-
-    // becasec syn and fin may be in same segment
+    if (header.fin) {
+        // cerr << "Recever: SYN_RECV -->> FIN_RECV\n";
+    }
+    // because syn and fin may be in same segment
     // so send seg even a syn flag is true
     uint64_t checkpoint = _reassembler.stream_out().bytes_written();
-    uint64_t stream_index = unwrap(header.seqno, _isn, checkpoint) - receivedSYN;
+    uint64_t stream_index = unwrap(header.seqno, _isn, checkpoint) - !header.syn;
 
     _reassembler.push_substring(seg.payload().copy(), stream_index, header.fin);
 }
