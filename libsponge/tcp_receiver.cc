@@ -17,16 +17,10 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
         if (!header.syn) {
             return;
         }
-        // cerr << "Recever: LISTEN -->> SYN_RECV\n";
         _in_listen = false;
         _isn = header.seqno;
     }
-    if (header.fin) {
-        // cerr << "Recever: SYN_RECV -->> FIN_RECV\n";
-    }
-    // because syn and fin may be in same segment
-    // so send seg even a syn flag is true
-    uint64_t checkpoint = _reassembler.stream_out().bytes_written();
+    uint64_t checkpoint = _reassembler.stream_out().bytes_written() + 1;
     uint64_t stream_index = unwrap(header.seqno, _isn, checkpoint) - !header.syn;
 
     _reassembler.push_substring(seg.payload().copy(), stream_index, header.fin);

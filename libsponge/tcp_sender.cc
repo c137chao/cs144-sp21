@@ -47,32 +47,27 @@ inline void TCPSender::send_syn_segment() {
 }
 
 void TCPSender::fill_window() {
-     TCPSegment segment;
-     if (_state == CLOSED) {
+    if (_state == CLOSED) {
         // if doesn't set connection, send syn segment
-        // cerr << "State: CLOSED -->> SYN_SENT\n";
-        segment.header().syn = true;
-        _state = SYN_SENT;
-        // return send_syn_segment(); 
+        return send_syn_segment(); 
     }
     // if _window_size is 0, try send a byte payload data
     uint64_t window_size = _window_size;
     if (window_size == 0) {
         window_size = 1;
     }
-
     // send data entil window is full or _stream.eof() or buffer empty
-    while ((_state == SYN_ACKED) and (window_size > bytes_in_flight())) {
+    while (_state == SYN_ACKED && window_size > bytes_in_flight()) {
         TCPSegment segment;
         segment.header().seqno = next_seqno();
 
         size_t readsz = window_size - bytes_in_flight();
     
         // if write ended, check should we set fin flag
-        if((_stream.input_ended()) and (readsz > _stream.buffer_size())) {
+        if(_stream.input_ended() && readsz > _stream.buffer_size()) {
             segment.header().fin = true;
             _state = FIN_SENT;
-            readsz--; // 没有必要，因为缓冲区中的数据已经不够readsz了，一定有空间给fin
+            readsz--;
         } else if (_stream.buffer_empty()) {
             return;
         }
@@ -101,30 +96,28 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
     // update window size, reset retransmission timeout
     _window_size = window_size;
-    _retransmission_timeout = _initial_retransmission_timeout;
+    _retransmission_count = 0;
 
     // pop all segment that received by receiver
     while (!_segments_outstanding.empty()) {
-        size_t seqno = _segments_outstanding.front().first;
-        size_t segment_size = _segments_outstanding.front().second.length_in_sequence_space();
+        auto [seqno, segment] = _segments_outstanding.front();
         
-        if (seqno + segment_size > received_ackno) {
+        if (seqno + segment.length_in_sequence_space() > received_ackno) {
             break;
         }
-        _bytes_in_flight -= (segment_size);
+        _bytes_in_flight -= segment.length_in_sequence_space();
         _segments_outstanding.pop();
         _remaining_time = 0;
-        _retransmission_count = 0;
+        _retransmission_timeout = _initial_retransmission_timeout;
+
     }
 
     if (_state == SYN_SENT && _bytes_in_flight < _next_seqno) {
-        // cerr << "State: SYN_SENT -->> SYN_ACKED\n";
         _state = SYN_ACKED;
     }
     if (_state == SYN_ACKED) {   
         fill_window();
     } else if (_state == FIN_SENT) {
-        // cerr << "State: FIN_SENT -->> FINS_ACKED\n";
         _state = FINS_ACKED;
     }
 }
@@ -137,7 +130,7 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
     }
     _remaining_time += ms_since_last_tick;
 
-    if (!_segments_outstanding.empty() and _remaining_time >= _retransmission_timeout) {
+    if (!_segments_outstanding.empty() && _remaining_time >= _retransmission_timeout) {
         if (_window_size != 0) { 
             // if netword congestion
             _retransmission_timeout *= 2;

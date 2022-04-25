@@ -50,6 +50,9 @@ class TCPSender {
     //! bytes count of payload in outgoing_segment
     uint64_t _bytes_in_flight{};
 
+
+    bool _set_syn_flag {false};
+    bool _set_fin_flag {false};
     enum STATE {CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FINS_ACKED};
     //! current state, init is closed
     STATE _state = CLOSED;
