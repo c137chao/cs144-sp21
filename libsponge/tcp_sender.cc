@@ -68,6 +68,7 @@ void TCPSender::fill_window() {
             segment.header().fin = true;
             _state = FIN_SENT;
             readsz--;
+           // _remaining_time = 0;
         } else if (_stream.buffer_empty()) {
             return;
         }
@@ -129,8 +130,10 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
         return;
     }
     _remaining_time += ms_since_last_tick;
-
-    if (!_segments_outstanding.empty() && _remaining_time >= _retransmission_timeout) {
+    if (_segments_outstanding.empty()) {
+        _remaining_time = 0;
+    }
+    else if (_remaining_time >= _retransmission_timeout) {
         if (_window_size != 0) { 
             // if netword congestion
             _retransmission_timeout *= 2;

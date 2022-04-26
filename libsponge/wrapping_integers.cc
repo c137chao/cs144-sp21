@@ -15,7 +15,7 @@ using namespace std;
 //! \param isn The initial sequence number
 WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
     // n is a 64 bit absolute seq begin with 0
-    //uint32_t n_32bit = static_cast<uint32_t>(n);
+    // uint32_t n_32bit = static_cast<uint32_t>(n);
     return WrappingInt32(n + isn.raw_value());
 }
 

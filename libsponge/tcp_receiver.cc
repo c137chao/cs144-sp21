@@ -20,9 +20,17 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
         _in_listen = false;
         _isn = header.seqno;
     }
-    uint64_t checkpoint = _reassembler.stream_out().bytes_written() + 1;
-    uint64_t stream_index = unwrap(header.seqno, _isn, checkpoint) - !header.syn;
+    uint64_t checkpoint = _reassembler.stream_out().bytes_written() ;
+    uint64_t abs_seq = unwrap(header.seqno, _isn, checkpoint);
 
+    uint64_t abs_ack = _reassembler.stream_out().bytes_written() + 1 + _reassembler.stream_out().input_ended();
+
+    if (abs_seq >= abs_ack + window_size()) {
+        return;
+    }
+    
+    uint64_t stream_index = abs_seq - !header.syn;
+    
     _reassembler.push_substring(seg.payload().copy(), stream_index, header.fin);
 }
 
