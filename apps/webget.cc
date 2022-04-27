@@ -9,7 +9,8 @@ using namespace std;
 void get_URL(const string &host, const string &path) {
     // Your code here.
 
-    CS144TCPSocket  mysocket;
+    TCPSocket  mysocket;
+    // CS144TCPSocket  mysocket;
 
     // You will need to connect to the "http" service on
     // the computer whose name is in the "host" string,
@@ -26,8 +27,8 @@ void get_URL(const string &host, const string &path) {
     while(!mysocket.eof()) {
         cout << mysocket.read();
     }
-    // mysocket.close();
-    mysocket.wait_until_closed();
+    mysocket.close();
+    // mysocket.wait_until_closed();
 
     // cerr << "Function called: get_URL(" << host << ", " << path << ").\n";
     // cerr << "Warning: get_URL() has not been implemented yet.\n";

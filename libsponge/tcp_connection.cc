@@ -31,10 +31,10 @@ size_t TCPConnection::time_since_last_segment_received() const {
 }
 
 void TCPConnection::kill_connection() {
-    {
-        std::queue<TCPSegment> empty_out;
-        std::swap(empty_out, _segments_out);
-    }
+    // {
+    //     std::queue<TCPSegment> empty_out;
+    //     std::swap(empty_out, _segments_out);
+    // }
     _sender.stream_in().set_error();
     _receiver.stream_out().set_error();
     _actived = false;
@@ -75,7 +75,7 @@ void TCPConnection::fetch_segment() {
         if (_receiver.ackno().has_value()) {
             segment.header().ack = true;
             segment.header().ackno = _receiver.ackno().value();
-            segment.header().win = _receiver.window_size();
+            segment.header().win = min(static_cast<size_t>(std::numeric_limits<uint16_t>::max()), _receiver.window_size());
         }
 
        _segments_out.push(segment);
@@ -93,15 +93,16 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (!active()) {
         return;
     }
-    if (seg.header().rst) {
-        kill_connection();
-        return;
-    }
 
     _time_since_last_segment_received = 0;
 
     if (seg.header().ack == true) {
         _sender.ack_received(seg.header().ackno, seg.header().win);
+    }
+
+    if (seg.header().rst) {
+        kill_connection();
+        return;
     }
 
     if (TCPState::state_summary(_receiver) != TCPReceiverStateSummary::LISTEN  or TCPState::state_summary(_sender) == TCPSenderStateSummary::SYN_ACKED
@@ -122,8 +123,8 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         }
 
     }
-    clean_shutdown();
     fetch_segment();
+    clean_shutdown();
 }
 
 bool TCPConnection::active() const { return _actived; }
@@ -148,7 +149,12 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
     auto retrans_count = _sender.consecutive_retransmissions();
 
     if (retrans_count > TCPConfig::MAX_RETX_ATTEMPTS) {
-        _sender.segments_out().pop();
+        while (!_sender.segments_out().empty()) {
+            _sender.segments_out().pop();
+        }
+        while (!_segments_out.empty()) {
+            _segments_out.pop();
+        }
         send_rst_segment();
         kill_connection();
     } else {
