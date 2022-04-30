@@ -5,6 +5,7 @@
 #include "tcp_receiver.hh"
 #include "tcp_sender.hh"
 #include "tcp_state.hh"
+#include <string>
 
 //! \brief A complete endpoint of a TCP connection
 class TCPConnection {
@@ -35,11 +36,6 @@ class TCPConnection {
   
     void clean_shutdown();
     void unclean_shutdown();
-
-    bool _is_active{};
-    int _time_since_last_segment_received_ms{};
-    void _trans_segments_to_out_with_ack_and_win();
-    void _set_rst_state(bool send_rst);
 
     ByteStream &outbound_stream() { return _sender.stream_in(); }
 

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <limits>
 #include <algorithm>
+#include <string>
 
 // Dummy implementation of a TCP connection
 
@@ -31,10 +32,6 @@ size_t TCPConnection::time_since_last_segment_received() const {
 }
 
 void TCPConnection::kill_connection() {
-    // {
-    //     std::queue<TCPSegment> empty_out;
-    //     std::swap(empty_out, _segments_out);
-    // }
     _sender.stream_in().set_error();
     _receiver.stream_out().set_error();
     _actived = false;
@@ -44,6 +41,28 @@ void TCPConnection::kill_connection() {
 void TCPConnection::unclean_shutdown() { 
     send_rst_segment();
     kill_connection();
+}
+
+void printSegment(const TCPSegment& segment) {
+    TCPHeader header = segment.header();
+    cerr << "{";
+    if (header.syn) {
+        cerr << "SYN ";
+    }
+    if (header.ack) {
+        cerr << "ACK ";
+    }
+    if (header.fin) {
+        cerr << "FIN ";
+    }
+    if (header.rst) {
+        cerr << "RST";
+    }
+    cerr << "}, seqno:" << header.seqno;
+    if (header.ack) {
+        cerr << ", ackno:"<< header.ackno;
+    }
+    cerr << " payload size():" << segment.payload().size() << endl; 
 }
 
 /*
@@ -57,10 +76,10 @@ Prereq #4
 void TCPConnection::clean_shutdown() {
     if (inbound_stream().input_ended()) { // receiver has been ended
         // cerr << ">> : inbound_stream has reach eof\n";
-        if (!_sender.stream_in().input_ended()) {
+        if (TCPState::state_summary(_sender) == TCPSenderStateSummary::SYN_ACKED) {
             _linger_after_streams_finish = false;
-        } else if (_sender.bytes_in_flight() == 0) {
-            if (not _linger_after_streams_finish or _time_since_last_segment_received >= 10 * _cfg.TIMEOUT_DFLT) {
+        } else if (TCPState::state_summary(_sender) == TCPSenderStateSummary::FIN_ACKED) {
+            if (not _linger_after_streams_finish or _time_since_last_segment_received >= 10 * _cfg.rt_timeout) {
                 _actived = false;
             }
         }
@@ -78,21 +97,29 @@ void TCPConnection::fetch_segment() {
             segment.header().win = min(static_cast<size_t>(std::numeric_limits<uint16_t>::max()), _receiver.window_size());
         }
 
-       _segments_out.push(segment);
+        // cerr << ">> Send: "; printSegment(segment);
+    
+        _segments_out.push(segment);
     }
 }
 
 void TCPConnection::send_segment() {
     _sender.fill_window();
-
     fetch_segment();
 }
 
 void TCPConnection::segment_received(const TCPSegment &seg) { 
-    // DUMMY_CODE(seg); 
     if (!active()) {
         return;
     }
+    // cerr << "Receive Segment:";
+    // printSegment(seg);
+
+    if (seg.header().rst) {
+        kill_connection();
+        return;
+    }
+    // cerr << ">> Recv: "; printSegment(seg);
 
     _time_since_last_segment_received = 0;
 
@@ -100,19 +127,15 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         _sender.ack_received(seg.header().ackno, seg.header().win);
     }
 
-    if (seg.header().rst) {
-        kill_connection();
-        return;
-    }
+    _receiver.segment_received(seg);
 
-    if (TCPState::state_summary(_receiver) != TCPReceiverStateSummary::LISTEN  or TCPState::state_summary(_sender) == TCPSenderStateSummary::SYN_ACKED
-        or seg.header().syn) {
-        _sender.fill_window();
+    if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::LISTEN) {
+        return; // if doesn't set connection, do nothing
     }
-    
+    clean_shutdown();
+     _sender.fill_window();
     if (seg.length_in_sequence_space() != 0) {
-        // syn, fin, payload
-        _receiver.segment_received(seg);  
+        // syn, fin, payload, not pure ack
         if (_sender.segments_out().empty()){
             _sender.send_empty_segment();
         }
@@ -121,7 +144,6 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         if (_receiver.ackno().has_value() and seg.header().seqno == _receiver.ackno().value() - 1) {
             _sender.send_empty_segment();      
         }
-
     }
     fetch_segment();
     clean_shutdown();
