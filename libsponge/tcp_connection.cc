@@ -3,7 +3,6 @@
 #include <iostream>
 #include <limits>
 #include <algorithm>
-#include <string>
 
 // Dummy implementation of a TCP connection
 
@@ -98,7 +97,7 @@ void TCPConnection::fetch_segment() {
         }
 
         // cerr << ">> Send: "; printSegment(segment);
-    
+   
         _segments_out.push(segment);
     }
 }
@@ -112,14 +111,11 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (!active()) {
         return;
     }
-    // cerr << "Receive Segment:";
-    // printSegment(seg);
 
     if (seg.header().rst) {
         kill_connection();
         return;
     }
-    // cerr << ">> Recv: "; printSegment(seg);
 
     _time_since_last_segment_received = 0;
 
@@ -171,22 +167,18 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
     auto retrans_count = _sender.consecutive_retransmissions();
 
     if (retrans_count > TCPConfig::MAX_RETX_ATTEMPTS) {
-        while (!_sender.segments_out().empty()) {
-            _sender.segments_out().pop();
-        }
-        while (!_segments_out.empty()) {
-            _segments_out.pop();
-        }
+        _sender.segments_out().pop();
         send_rst_segment();
         kill_connection();
     } else {
+        // cerr << "Retrans-";
         fetch_segment();
         clean_shutdown();
     }
 }
 
 void TCPConnection::end_input_stream() {
-    _sender.stream_in().end_input();
+    outbound_stream().end_input();
     send_segment();
 }
 

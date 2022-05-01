@@ -23,9 +23,7 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , _initial_retransmission_timeout{retx_timeout}
     , _stream(capacity), _retransmission_timeout(retx_timeout) {}
 
-uint64_t TCPSender::bytes_in_flight() const { 
-    return _bytes_in_flight;
-}
+uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 
 inline void TCPSender::send_syn_segment() {
     TCPSegment segment;
@@ -72,10 +70,14 @@ void TCPSender::fill_window() {
         } else if (_stream.buffer_empty()) {
             return;
         }
+
+        if (_segments_out.empty()) {
+            _retransmission_timeout = _initial_retransmission_timeout;
+        }
  
         readsz = min(readsz, TCPConfig::MAX_PAYLOAD_SIZE);
    
-        string payload = _stream.read(readsz);
+        string payload = std::move(_stream.read(readsz));
         segment.payload() = Buffer(std::move(payload));
 
         _segments_out.emplace(segment);
@@ -96,8 +98,11 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         return;  // an invalid ackno
     }
     // update window size, reset retransmission timeout
-    _window_size = window_size;
-    _retransmission_count = 0;
+    if (received_ackno >= _next_seqno - bytes_in_flight()) {
+        _window_size = window_size;
+        _retransmission_count = 0;
+    }
+
 
     // pop all segment that received by receiver
     while (!_segments_outstanding.empty()) {
@@ -110,7 +115,6 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _segments_outstanding.pop();
         _remaining_time = 0;
         _retransmission_timeout = _initial_retransmission_timeout;
-
     }
 
     if (_state == SYN_SENT && _bytes_in_flight < _next_seqno) {
