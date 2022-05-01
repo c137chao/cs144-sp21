@@ -2,6 +2,7 @@
 #define SPONGE_LIBSPONGE_BYTE_STREAM_HH
 
 #include <queue>
+#include <deque>
 #include <string>
 #include <memory>
 #include <utility>
@@ -10,106 +11,58 @@
 
 //! \brief An in-order byte stream.
 
-//! Bytes are written on the "input" side and read from the "output"
-//! side.  The byte stream is finite: the writer can end the input,
-//! and then no more bytes can be written.
+class MyBuffer {
+  private:
+    std::shared_ptr<std::string> _storage{};
+    size_t _starting_offset{};
+    size_t _ending_offset{};
 
-class my_queue{
-private:
-  std::string _data;
-  size_t _capacity;
-  size_t _write;
-  size_t _read;
+  public:
+    MyBuffer() = default;
+    MyBuffer(const std::string &str) : _storage(std::make_shared<std::string>(str)) {}
+    //! \brief Construct by taking ownership of a string
+    MyBuffer(std::string &&str) noexcept : _storage(std::make_shared<std::string>(std::move(str))) {}
 
-public:
-  my_queue(size_t cap)
-    : _data(std::string(cap + 1, '^')), _capacity(cap + 1), _write(0), _read(0) {}
-
-  //! \returns true if queue is empty
-  bool empty() const {
-    return _write == _read;
-  }
-  //! \returns true if queue is full 
-  bool full()  const {
-    return ((_write + 1) % _capacity) == _read ; 
-  }
-
-  //! \returns counts of element in queue
-  size_t size() const { 
-    return ( _write - _read  + _capacity ) % _capacity; 
-  }
-
-  //! \returns total capcity of queue
-  size_t capacity() const {
-    return _capacity - 1;
-  }
-
-  size_t remain_capcity() const {
-    return _capacity - 1 - size();
-  }
-
-  // push one char to the back of queue
-  void push(char c) {
-    if (full()) {
-      throw std::out_of_range("push err: queue is full");
-    }
-    _data[_write] = c; 
-    _write = (_write + 1) % _capacity;
-  }
-
-  // pop one char at the front in queue
-  void pop() {
-    if (empty()) {
-      throw std::out_of_range("pop err: queue is empty");
-    }
-    _read = (_read + 1) % _capacity;
-  }
-  
-  // pop n char at the front in queue
-  void pop(const size_t n) {
-    if (size() < n) {
-      throw std::out_of_range("pop(n) err: queue hasn't enough elem");
+    //! \name Expose contents as a std::string_view
+    //!@{
+    std::string_view str() const {
+        if (not _storage) {
+            return {};
+        }
+        return {_storage->data() + _starting_offset, _storage->size() - _starting_offset};
     }
 
-    _read = (_read + n) % _capacity;
-  }
+    operator std::string_view() const { return str(); }
+    //!@}
 
-  //! \returns top one char at the front of queue
-  char top() const {
-    if (empty()) {
-      throw std::out_of_range("top err: queue is empty");
-    }
+    //! \brief Get character at location `n`
+    uint8_t at(const size_t n) const { return str().at(n); }
 
-    return _data[_read];
-  }
+    //! \brief Size of the string
+    size_t size() const { return str().size(); }
 
-  //! \returns top n chars at the front of queue
-  std::string top(const size_t n) const {
-    if (size() < n) {
-      throw std::out_of_range("top(n) err: queue hasn't enough elem");
-    }
+    //! \brief Make a copy to a new std::string
+    std::string copy() const { return std::string(str()); }
 
-    size_t sz = std::min(n, size());
+    //! \brief Discard the first `n` bytes of the string (does not require a copy or move)
+    //! \note Doesn't free any memory until the whole string has been discarded in all copies of the Buffer.
+    void remove_prefix(const size_t n);
 
-    if (_read + sz < _capacity) {
-      return std::move(std::string(_data, _read, sz));
-    } else {
-      return std::move(std::string(_data, _read, _capacity - _read) + std::string(_data, 0, sz - (_capacity - _read)));
-    }
-  }
+    void remove_suffix(const size_t n);
 };
-
 
 class ByteStream {
   private:
     // Your code here -- add private members as necessary.
-    my_queue _byte_buffer;
+    std::deque<char> _buffer_list;
     
     std::size_t _capacity;
-    std::size_t _bytes_written;
-    std::size_t _bytes_read;
-    bool _end_input;
-    bool _end_output;
+    std::size_t _bytes_written{};
+    std::size_t _bytes_read{};
+    // std::size_t _size{};
+  
+    bool _end_input {false};
+    bool _end_output{false};
     // Hint: This doesn't need to be a sophisticated data structure at
     // all, but if any of your tests are taking longer than a second,
     // that's a sign that you probably want to keep exploring

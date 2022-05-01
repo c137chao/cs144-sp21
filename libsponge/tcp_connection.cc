@@ -95,8 +95,6 @@ void TCPConnection::fetch_segment() {
             segment.header().ackno = _receiver.ackno().value();
             segment.header().win = min(static_cast<size_t>(std::numeric_limits<uint16_t>::max()), _receiver.window_size());
         }
-
-        // cerr << ">> Send: "; printSegment(segment);
    
         _segments_out.push(segment);
     }
