@@ -4,6 +4,7 @@
 
 #include <random>
 #include <algorithm>
+#include <functional>
 
 // Dummy implementation of a TCP sender
 
@@ -27,14 +28,9 @@ uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 
 inline void TCPSender::send_syn_segment() {
     TCPSegment segment;
-    // set tcpsegment header
     segment.header().seqno = next_seqno();
     segment.header().syn = true;
 
-    // send it, and hold it until receive ack
-    _segments_out.emplace(segment);
-    _segments_outstanding.emplace(std::make_pair(0, segment));
- 
     // update state;
     _state = SYN_SENT;
     _next_seqno = 1;
@@ -42,43 +38,37 @@ inline void TCPSender::send_syn_segment() {
 
     // start clock
     _alarm_run = true;
+    // send it, and hold it until receive ack
+    _segments_out.emplace(segment);
+    _segments_outstanding.emplace(std::make_pair(0, segment));
 }
 
 void TCPSender::fill_window() {
     if (_state == CLOSED) {
-        // if doesn't set connection, send syn segment
         return send_syn_segment(); 
     }
     // if _window_size is 0, try send a byte payload data
-    uint64_t window_size = _window_size;
-    if (window_size == 0) {
-        window_size = 1;
-    }
+    uint64_t window_size = _window_size == 0 ? 1 : _window_size;
     // send data entil window is full or _stream.eof() or buffer empty
-    while (_state == SYN_ACKED && window_size > bytes_in_flight()) {
+    while (_state == SYN_ACKED and window_size > bytes_in_flight()) {
         TCPSegment segment;
+    
         segment.header().seqno = next_seqno();
 
-        size_t readsz = window_size - bytes_in_flight();
+        const auto read_size = min(TCPConfig::MAX_PAYLOAD_SIZE, window_size - bytes_in_flight());
     
-        // if write ended, check should we set fin flag
-        if(_stream.input_ended() && readsz > _stream.buffer_size()) {
+        string payload = std::move(_stream.read(read_size));
+
+        if (_stream.eof() && window_size - bytes_in_flight() > payload.size()) {
             segment.header().fin = true;
             _state = FIN_SENT;
-            readsz--;
-           // _remaining_time = 0;
-        } else if (_stream.buffer_empty()) {
-            return;
         }
 
-        if (_segments_out.empty()) {
-            _retransmission_timeout = _initial_retransmission_timeout;
-        }
- 
-        readsz = min(readsz, TCPConfig::MAX_PAYLOAD_SIZE);
-   
-        string payload = std::move(_stream.read(readsz));
         segment.payload() = Buffer(std::move(payload));
+ 
+        if (segment.length_in_sequence_space() == 0) {
+            break;
+        }
 
         _segments_out.emplace(segment);
         _segments_outstanding.emplace(_next_seqno, segment);
@@ -94,25 +84,24 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     // DUMMY_CODE(ackno, window_size); 
     auto received_ackno = unwrap(ackno, _isn, _stream.bytes_read());
 
-    if (received_ackno > _next_seqno) {
+    if (received_ackno > _next_seqno or received_ackno < _next_seqno - bytes_in_flight()) {
         return;  // an invalid ackno
     }
-    // update window size, reset retransmission timeout
-    if (received_ackno >= _next_seqno - bytes_in_flight()) {
-        _window_size = window_size;
-        _retransmission_count = 0;
-    }
 
+    // update window size, reset retransmission timeout
+    _window_size = window_size;
+    _retransmission_count = 0;
 
     // pop all segment that received by receiver
     while (!_segments_outstanding.empty()) {
-        auto [seqno, segment] = _segments_outstanding.front();
+        const auto& [seqno, segment] = _segments_outstanding.front();
         
         if (seqno + segment.length_in_sequence_space() > received_ackno) {
             break;
         }
         _bytes_in_flight -= segment.length_in_sequence_space();
         _segments_outstanding.pop();
+
         _remaining_time = 0;
         _retransmission_timeout = _initial_retransmission_timeout;
     }
@@ -122,9 +111,10 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
     if (_state == SYN_ACKED) {   
         fill_window();
-    } else if (_state == FIN_SENT) {
-        _state = FINS_ACKED;
-    }
+    } 
+    // else if (_state == FIN_SENT) {
+    //     _state = FINS_ACKED;
+    // }
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method

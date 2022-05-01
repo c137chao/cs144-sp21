@@ -54,8 +54,8 @@ class TCPSender {
     //! current state, init is closed
     STATE _state = CLOSED;
     
-    bool in_close {true};
-    bool finished {false};
+    bool _in_close {true};
+    bool _finished {false};
     //! how man bytes can send, init is 1 byte (because send syn)
     uint64_t _window_size{1};
   
