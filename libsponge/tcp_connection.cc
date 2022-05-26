@@ -72,7 +72,7 @@ Prereq #4
     send fin and recv ack
     recv fin and send ack
 */
-void TCPConnection::clean_shutdown() {
+void TCPConnection::try_clean_shutdown() {
     if (inbound_stream().input_ended()) { // receiver has been ended
         // cerr << ">> : inbound_stream has reach eof\n";
         if (TCPState::state_summary(_sender) == TCPSenderStateSummary::SYN_ACKED) {
@@ -126,7 +126,8 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::LISTEN) {
         return; // if doesn't set connection, do nothing
     }
-    clean_shutdown();
+    try_clean_shutdown();
+
      _sender.fill_window();
     if (seg.length_in_sequence_space() != 0) {
         // syn, fin, payload, not pure ack
@@ -140,7 +141,7 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         }
     }
     fetch_segment();
-    clean_shutdown();
+    try_clean_shutdown();
 }
 
 bool TCPConnection::active() const { return _actived; }
@@ -171,7 +172,7 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
     } else {
         // cerr << "Retrans-";
         fetch_segment();
-        clean_shutdown();
+        try_clean_shutdown();
     }
 }
 

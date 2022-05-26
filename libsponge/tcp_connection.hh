@@ -34,7 +34,7 @@ class TCPConnection {
     //! \brief fill the sender window, then fetch segment
     void send_segment();
   
-    void clean_shutdown();
+    void try_clean_shutdown();
     void unclean_shutdown();
 
     ByteStream &outbound_stream() { return _sender.stream_in(); }

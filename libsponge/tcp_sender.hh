@@ -52,10 +52,8 @@ class TCPSender {
 
     enum STATE {CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FINS_ACKED};
     //! current state, init is closed
-    STATE _state = CLOSED;
+    STATE _state {CLOSED};
     
-    bool _in_close {true};
-    bool _finished {false};
     //! how man bytes can send, init is 1 byte (because send syn)
     uint64_t _window_size{1};
   
