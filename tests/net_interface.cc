@@ -57,6 +57,8 @@ EthernetFrame make_frame(const EthernetAddress &src,
 int main() {
     try {
         {
+            cerr << ">>>>>>  first test begin:\n\n";
+
             const EthernetAddress local_eth = random_private_ethernet_address();
             NetworkInterfaceTestHarness test{"typical ARP workflow", local_eth, Address("4.3.2.1", 0)};
 
@@ -102,6 +104,7 @@ int main() {
         }
 
         {
+            cerr << ">>>>>>  second test begin:\n\n";
             const EthernetAddress local_eth = random_private_ethernet_address();
             const EthernetAddress remote_eth = random_private_ethernet_address();
             NetworkInterfaceTestHarness test{"reply to ARP request", local_eth, Address("5.5.5.5", 0)};
@@ -127,6 +130,8 @@ int main() {
         }
 
         {
+            cerr << ">>>>>>  third test begin:\n\n";
+
             const EthernetAddress local_eth = random_private_ethernet_address();
             const EthernetAddress remote_eth = random_private_ethernet_address();
             NetworkInterfaceTestHarness test{"learn from ARP request", local_eth, Address("5.5.5.5", 0)};
@@ -151,6 +156,8 @@ int main() {
         }
 
         {
+            cerr << ">>>>>>  fourth test begin:\n\n";
+
             const EthernetAddress local_eth = random_private_ethernet_address();
             NetworkInterfaceTestHarness test{"pending mappings last five seconds", local_eth, Address("1.2.3.4", 0)};
 
@@ -176,6 +183,8 @@ int main() {
         }
 
         {
+            cerr << ">>>>>>  fifth test begin:\n\n";
+
             const EthernetAddress local_eth = random_private_ethernet_address();
             NetworkInterfaceTestHarness test{"active mappings last 30 seconds", local_eth, Address("4.3.2.1", 0)};
 
@@ -242,6 +251,8 @@ int main() {
         }
 
         {
+            cerr << ">>>>>>  sixth test begin:\n\n";
+
             const EthernetAddress local_eth = random_private_ethernet_address();
             const EthernetAddress remote_eth1 = random_private_ethernet_address();
             const EthernetAddress remote_eth2 = random_private_ethernet_address();

@@ -1,6 +1,7 @@
 #ifndef SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 #define SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 
+#include "arp_message.hh"
 #include "ethernet_frame.hh"
 #include "tcp_over_ip.hh"
 #include "tun.hh"
@@ -43,20 +44,16 @@ class NetworkInterface {
 
     //! My code here 
     using IP = uint32_t;
-    using TTL_EherNetAddr = pair<int, EthernetAddress>;
-    using TTL_Datagram = pair<int, InternetDatagram>;
+    using TTL_EherNetAddr = std::pair<int, EthernetAddress>;
+    using TTL_Datagram = std::pair<int, InternetDatagram>;
 
-    uint32_t _time_out;
+    const EthernetAddress Board_Mac_Adress {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-    unordered_map<IP, TTL_EherNetAddr> _arp_cache;
+    std::unordered_map<IP, TTL_EherNetAddr> _arp_cache{};
 
-    std::unordered_map<IP, TTL_Datagram> _arp_request;
+    std::unordered_map<IP, TTL_Datagram> _arp_request{};
 
-    ARPMessage&& CreateArpMessage() {
-
-    }
-
-
+    ARPMessage CreateARPMessage(uint16_t type, IP target_ip, const EthernetAddress& target_mac) noexcept;
 
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
