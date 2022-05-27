@@ -110,7 +110,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _state = SYN_ACKED;
     }
     if (_state == SYN_ACKED) {   
-        fill_window();
+        return fill_window();
     } 
     // else if (_state == FIN_SENT) {
     //     _state = FINS_ACKED;
