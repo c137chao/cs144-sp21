@@ -49,9 +49,9 @@ class NetworkInterface {
 
     const EthernetAddress Board_Mac_Adress {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-    std::unordered_map<IP, TTL_EherNetAddr> _arp_cache{};
+    std::unordered_map<IP, TTL_EherNetAddr> _arp_forward_table{};
 
-    std::unordered_map<IP, TTL_Datagram> _arp_request{};
+    std::unordered_map<IP, TTL_Datagram> _arp_request_cache{};
 
     ARPMessage CreateARPMessage(uint16_t type, IP target_ip, const EthernetAddress& target_mac) noexcept;
 

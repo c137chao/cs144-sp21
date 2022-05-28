@@ -29,14 +29,52 @@ void Router::add_route(const uint32_t route_prefix,
     cerr << "DEBUG: adding route " << Address::from_ipv4_numeric(route_prefix).ip() << "/" << int(prefix_length)
          << " => " << (next_hop.has_value() ? next_hop->ip() : "(direct)") << " on interface " << interface_num << "\n";
 
-    DUMMY_CODE(route_prefix, prefix_length, next_hop, interface_num);
+    // DUMMY_CODE(route_prefix, prefix_length, next_hop, interface_num);
     // Your code here.
+    _forward_table[prefix_length]
+        [get_mask(route_prefix, prefix_length)] = std::make_pair(interface_num, next_hop);
+
 }
 
 //! \param[in] dgram The datagram to be routed
 void Router::route_one_datagram(InternetDatagram &dgram) {
-    DUMMY_CODE(dgram);
+    // DUMMY_CODE(dgram);
     // Your code here.
+
+    // printf("\n\b TTL : %d\n", dgram.header().ttl);
+    if (dgram.header().ttl-- < 2) {
+        // drop the datagram
+        return;
+    }
+
+    uint32_t ip_address = dgram.header().dst;
+
+    // printf("\ndestination ip: %x\n", ip_address);
+    Interface interface {static_cast<uint32_t>(-1), nullopt};
+
+    // printtable();
+    int interface_num = 32;
+
+    for (;interface_num >= 0; interface_num--) {
+        if (_forward_table[i].find(ip_address) != _forward_table[i].end()) {
+            interface = (_forward_table[i])[ip_address];
+            // printf("> %x slot %ld with prefix %d\n", ip_address, interface.first, i);       
+            break;
+        }
+        ip_address >>= 1;
+    }
+
+    if (interface.first == static_cast<uint32_t>(-1)) {
+        return;
+    }
+
+    Address next_hop = Address::from_ipv4_numeric(dgram.header().dst);
+
+    if (interface.second.has_value()) {
+       next_hop =  interface.second.value();
+    }
+
+    _interfaces[interface.first].send_datagram(dgram, next_hop);
 }
 
 void Router::route() {

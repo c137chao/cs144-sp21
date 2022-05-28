@@ -51,26 +51,26 @@ void NetworkInterface::send_datagram(const InternetDatagram &dgram, const Addres
     frame.header().src = _ethernet_address;
 
     // if cached, send ipv4 datagram
-    if (_arp_cache.find(next_hop_ip) != _arp_cache.end()) {
+    if (_arp_forward_table.find(next_hop_ip) != _arp_forward_table.end()) {
         frame.header().type = EthernetHeader::TYPE_IPv4;
-        frame.header().dst = _arp_cache[next_hop_ip].second;
+        frame.header().dst = _arp_forward_table[next_hop_ip].second;
         frame.payload() = dgram.serialize();
     
     } else {
-        auto iter = _arp_request.find(next_hop_ip);
-        if (iter != _arp_request.end() && _arp_request[next_hop_ip].first < 5000) {
+        if (_arp_request_cache.find(next_hop_ip) != _arp_request_cache.end() 
+                                && _arp_request_cache[next_hop_ip].first < 5000) {
             return;
         }
-        _arp_request[next_hop_ip] = std::make_pair(0, dgram);
+        _arp_request_cache[next_hop_ip] = std::make_pair(0, dgram);
 
         // set ethnet frame header
         frame.header().type = EthernetHeader::TYPE_ARP;
         frame.header().dst = Board_Mac_Adress;
 
         // create arp message
-        ARPMessage arp_message = CreateARPMessage(ARPMessage::OPCODE_REQUEST, next_hop_ip, {});
+        ARPMessage arp_message = std::move(CreateARPMessage(ARPMessage::OPCODE_REQUEST, next_hop_ip, {}));
 
-        frame.payload() = arp_message.serialize();
+        frame.payload() = std::move(arp_message.serialize());
     }
 
     _frames_out.push(std::move(frame));
@@ -107,11 +107,11 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
         const IP source_ip = received_arp_message.sender_ip_address;
         const EthernetAddress& source_mac = received_arp_message.sender_ethernet_address;
 
-        _arp_cache[source_ip] = std::make_pair(0, source_mac);
+        _arp_forward_table[source_ip] = std::make_pair(0, source_mac);
 
         if (received_arp_message.opcode == ARPMessage::OPCODE_REPLY && target_mac == _ethernet_address) {
          // if is arp reply, update apt route table
-            IPv4Datagram datagram = _arp_request[source_ip].second;
+            IPv4Datagram datagram = _arp_request_cache[source_ip].second;
 
             EthernetFrame ether_frame;
             ether_frame.header() = {source_mac, _ethernet_address, EthernetHeader::TYPE_IPv4};
@@ -120,13 +120,13 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
 
             _frames_out.push(ether_frame);
 
-            _arp_request.erase(source_ip);
+            _arp_request_cache.erase(source_ip);
             
             // return datagram;
             return nullopt;
 
         } else if(received_arp_message.opcode == ARPMessage::OPCODE_REQUEST and 
-            (_arp_cache.find(target_ip) != _arp_cache.end() || _ip_address.ipv4_numeric() == target_ip)){
+            (_arp_forward_table.find(target_ip) != _arp_forward_table.end() || _ip_address.ipv4_numeric() == target_ip)){
 
         // if is arp request
             EthernetFrame ether_frame;
@@ -145,18 +145,18 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void NetworkInterface::tick(const size_t ms_since_last_tick) { 
     // DUMMY_CODE(ms_since_last_tick); 
-    auto table_iter = _arp_cache.begin();
-    while (table_iter != _arp_cache.end()) {
+    auto table_iter = _arp_forward_table.begin();
+    while (table_iter != _arp_forward_table.end()) {
         table_iter->second.first += ms_since_last_tick;
 
         if (table_iter->second.first > 30000) {
-            table_iter = _arp_cache.erase(table_iter);
+            table_iter = _arp_forward_table.erase(table_iter);
         } else {
             ++table_iter;
         }
     }
 
-    for (auto &iter : _arp_request) {
+    for (auto &iter : _arp_request_cache) {
         
         iter.second.first += ms_since_last_tick;
 
